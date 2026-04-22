@@ -3,7 +3,7 @@
   "devCommand": "pnpm dev",
   "installCommand": "pnpm install",
   "framework": "vite",
-  "outputDirectory": "dist",
+  "outputDirectory": "dist/public",
   "regions": ["sfo1"],
   "cleanUrls": true,
   "trailingSlash": false,
