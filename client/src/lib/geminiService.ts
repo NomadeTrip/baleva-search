@@ -32,12 +32,11 @@ export async function analyzeProductFromUrl(
     }
 
     const response = await fetch(
-      `${GEMINI_API_URL}/v1beta/models/gemini-2.5-flash:generateContent`,
+      `${GEMINI_API_URL}/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": GEMINI_API_KEY,
         },
         body: JSON.stringify({
           contents: [
@@ -108,12 +107,11 @@ export async function analyzeProductFromImage(
     const base64Data = imageBase64.replace(/^data:[^;]+;base64,/, "");
 
     const response = await fetch(
-      `${GEMINI_API_URL}/v1beta/models/gemini-2.5-flash:generateContent`,
+      `${GEMINI_API_URL}/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": GEMINI_API_KEY,
         },
         body: JSON.stringify({
           contents: [
@@ -184,12 +182,11 @@ export async function generateSearchTerms(
     }
 
     const response = await fetch(
-      `${GEMINI_API_URL}/v1beta/models/gemini-2.5-flash:generateContent`,
+      `${GEMINI_API_URL}/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": GEMINI_API_KEY,
         },
         body: JSON.stringify({
           contents: [
