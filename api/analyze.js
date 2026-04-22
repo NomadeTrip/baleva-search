@@ -1,40 +1,28 @@
-// Vercel Serverless Function: analiza un producto con Gemini API
+// Vercel Serverless Function: analiza un producto con Groq API (gratis)
 export default async function handler(req, res) {
-  // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const { type, value } = req.body || {};
-
   if (!type || !value) {
     return res.status(400).json({ success: false, error: "Faltan parámetros: type y value son requeridos" });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ success: false, error: "API key de Gemini no configurada" });
+    return res.status(500).json({ success: false, error: "API key de Groq no configurada" });
   }
 
   try {
-    let requestBody;
+    let userMessage;
 
     if (type === "url") {
-      requestBody = {
-        contents: [
-          {
-            parts: [
-              {
-                text: `Analiza este producto y extrae su información. URL del producto: ${value}
-                
+      userMessage = `Analiza este producto y extrae su información. URL del producto: ${value}
+
 Responde SOLO con un JSON válido (sin markdown, sin bloques de código) con esta estructura exacta:
 {
   "name": "nombre del producto",
@@ -45,38 +33,34 @@ Responde SOLO con un JSON válido (sin markdown, sin bloques de código) con est
   "estimatedPrice": número en USD,
   "style": "estilo de diseño (ej: minimalista, escultural, casual, elegante)",
   "searchTerms": ["término1", "término2", "término3", "término4", "término5"]
-}`,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 1024,
-        },
-      };
+}`;
     } else if (type === "image") {
-      // Para imágenes, value es un data URL base64
+      // Para imágenes, Groq soporta visión con llama-3.2-11b-vision-preview
       const base64Match = value.match(/^data:([^;]+);base64,(.+)$/);
       if (!base64Match) {
         return res.status(400).json({ success: false, error: "Formato de imagen inválido" });
       }
-      const mimeType = base64Match[1];
-      const base64Data = base64Match[2];
 
-      requestBody = {
-        contents: [
-          {
-            parts: [
-              {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Data,
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "meta-llama/llama-4-scout-17b-16e-instruct",
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: { url: value },
                 },
-              },
-              {
-                text: `Analiza este producto en la imagen y extrae su información.
-                
+                {
+                  type: "text",
+                  text: `Analiza este producto en la imagen y extrae su información.
+
 Responde SOLO con un JSON válido (sin markdown, sin bloques de código) con esta estructura exacta:
 {
   "name": "nombre del producto",
@@ -88,50 +72,71 @@ Responde SOLO con un JSON válido (sin markdown, sin bloques de código) con est
   "style": "estilo de diseño (ej: minimalista, escultural, casual, elegante)",
   "searchTerms": ["término1", "término2", "término3", "término4", "término5"]
 }`,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
+                },
+              ],
+            },
+          ],
+          max_tokens: 1024,
           temperature: 0.3,
-          maxOutputTokens: 1024,
-        },
-      };
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        const msg = errorData?.error?.message || JSON.stringify(errorData);
+        return res.status(500).json({ success: false, error: `Groq error (${response.status}): ${msg}` });
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) return res.status(500).json({ success: false, error: "Respuesta vacía de la IA" });
+
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return res.status(500).json({ success: false, error: "No se pudo extraer información del producto" });
+
+      return res.status(200).json({ success: true, data: JSON.parse(jsonMatch[0]) });
     } else {
       return res.status(400).json({ success: false, error: "Tipo inválido. Use 'url' o 'image'" });
     }
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      }
-    );
+    // Para URLs (texto)
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: "Eres un experto en análisis de productos de e-commerce. Siempre respondes con JSON válido sin markdown.",
+          },
+          {
+            role: "user",
+            content: userMessage,
+          },
+        ],
+        max_tokens: 1024,
+        temperature: 0.3,
+      }),
+    });
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("Gemini API error:", JSON.stringify(errorData));
-      const geminiMsg = errorData?.error?.message || JSON.stringify(errorData);
-      return res.status(500).json({ success: false, error: `Gemini error (${response.status}): ${geminiMsg}` });
+      const msg = errorData?.error?.message || JSON.stringify(errorData);
+      return res.status(500).json({ success: false, error: `Groq error (${response.status}): ${msg}` });
     }
 
     const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) return res.status(500).json({ success: false, error: "Respuesta vacía de la IA" });
 
-    if (!content) {
-      return res.status(500).json({ success: false, error: "Respuesta vacía de la IA" });
-    }
-
-    // Extraer JSON de la respuesta
     const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return res.status(500).json({ success: false, error: "No se pudo extraer información del producto" });
-    }
+    if (!jsonMatch) return res.status(500).json({ success: false, error: "No se pudo extraer información del producto" });
 
-    const analysis = JSON.parse(jsonMatch[0]);
-    return res.status(200).json({ success: true, data: analysis });
+    return res.status(200).json({ success: true, data: JSON.parse(jsonMatch[0]) });
   } catch (error) {
     console.error("Error en analyze:", error);
     return res.status(500).json({ success: false, error: error.message || "Error desconocido" });
