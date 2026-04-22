@@ -14,28 +14,9 @@ interface ProductAnalysis {
   searchTerms: string[];
 }
 
-// Obtener variables de entorno - intentar múltiples nombres
-const getApiKey = () => {
-  // Intentar diferentes nombres de variables
-  return (
-    (import.meta.env.VITE_GEMINI_API_KEY as string) ||
-    (import.meta.env.GEMINI_API_KEY as string) ||
-    (import.meta.env.VITE_FRONTEND_FORGE_API_KEY as string) ||
-    ""
-  );
-};
-
-const getApiUrl = () => {
-  return (
-    (import.meta.env.VITE_GEMINI_API_URL as string) ||
-    (import.meta.env.GEMINI_API_URL as string) ||
-    (import.meta.env.VITE_FRONTEND_FORGE_API_URL as string) ||
-    "https://generativelanguage.googleapis.com"
-  );
-};
-
-const GEMINI_API_KEY = getApiKey();
-const GEMINI_API_URL = getApiUrl();
+// Obtener variables de entorno - Vercel requiere prefijo VITE_ para variables públicas
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+const GEMINI_API_URL = import.meta.env.VITE_GEMINI_API_URL || "https://generativelanguage.googleapis.com";
 
 /**
  * Analiza un producto desde una URL usando Gemini
@@ -46,7 +27,7 @@ export async function analyzeProductFromUrl(
   try {
     if (!GEMINI_API_KEY) {
       throw new Error(
-        "API key de Gemini no configurada. Agrega GEMINI_API_KEY en variables de entorno de Vercel."
+        "API key de Gemini no configurada. Agrega VITE_GEMINI_API_KEY en variables de entorno de Vercel."
       );
     }
 
@@ -117,7 +98,7 @@ export async function analyzeProductFromImage(
   try {
     if (!GEMINI_API_KEY) {
       throw new Error(
-        "API key de Gemini no configurada. Agrega GEMINI_API_KEY en variables de entorno de Vercel."
+        "API key de Gemini no configurada. Agrega VITE_GEMINI_API_KEY en variables de entorno de Vercel."
       );
     }
 
@@ -198,7 +179,7 @@ export async function generateSearchTerms(
   try {
     if (!GEMINI_API_KEY) {
       throw new Error(
-        "API key de Gemini no configurada. Agrega GEMINI_API_KEY en variables de entorno de Vercel."
+        "API key de Gemini no configurada. Agrega VITE_GEMINI_API_KEY en variables de entorno de Vercel."
       );
     }
 
