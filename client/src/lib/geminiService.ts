@@ -14,8 +14,8 @@ interface ProductAnalysis {
   searchTerms: string[];
 }
 
-const GEMINI_API_KEY = import.meta.env.VITE_FRONTEND_FORGE_API_KEY;
-const GEMINI_API_URL = import.meta.env.VITE_FRONTEND_FORGE_API_URL;
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_FRONTEND_FORGE_API_KEY;
+const GEMINI_API_URL = import.meta.env.VITE_GEMINI_API_URL || import.meta.env.VITE_FRONTEND_FORGE_API_URL || 'https://generativelanguage.googleapis.com';
 
 /**
  * Analiza un producto desde una URL usando Gemini
@@ -24,6 +24,10 @@ export async function analyzeProductFromUrl(
   url: string
 ): Promise<ProductAnalysis | null> {
   try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('API key de Gemini no configurada. Agrega VITE_GEMINI_API_KEY en variables de entorno.');
+    }
+
     const response = await fetch(
       `${GEMINI_API_URL}/v1beta/models/gemini-2.5-flash:generateContent`,
       {
@@ -89,6 +93,10 @@ export async function analyzeProductFromImage(
   imageBase64: string
 ): Promise<ProductAnalysis | null> {
   try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('API key de Gemini no configurada. Agrega VITE_GEMINI_API_KEY en variables de entorno.');
+    }
+
     // Extraer el tipo MIME de la imagen
     const mimeMatch = imageBase64.match(/data:([^;]+);/);
     const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
@@ -164,6 +172,10 @@ export async function generateSearchTerms(
   category: string
 ): Promise<string[]> {
   try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('API key de Gemini no configurada. Agrega VITE_GEMINI_API_KEY en variables de entorno.');
+    }
+
     const response = await fetch(
       `${GEMINI_API_URL}/v1beta/models/gemini-2.5-flash:generateContent`,
       {
