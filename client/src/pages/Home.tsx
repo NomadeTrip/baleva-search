@@ -2,12 +2,23 @@ import { useState } from "react";
 import { Loader2, TrendingDown } from "lucide-react";
 import SearchInput from "@/components/SearchInput";
 import ProductCard from "@/components/ProductCard";
-import {
-  analyzeProductFromURL,
-  analyzeProductFromImage,
-  findAlternatives,
-  type AlternativeProduct,
-} from "@/lib/aiService";
+import { trpc } from "@/lib/trpc";
+
+interface AlternativeProduct {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice: number;
+  savings: number;
+  similarity: number;
+  store: string;
+  url: string;
+  image: string;
+  description: string;
+  available: boolean;
+  rating?: number;
+  reviewCount?: number;
+}
 
 export default function Home() {
   const [searchResults, setSearchResults] = useState<AlternativeProduct[]>([]);
@@ -15,6 +26,9 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+
+  const analyzeProduct = trpc.search.analyzeProduct.useMutation();
+  const findAlternatives = trpc.search.findAlternatives.useMutation();
 
   const isLoading = isAnalyzing || isSearching;
 
@@ -25,18 +39,37 @@ export default function Home() {
     setIsAnalyzing(true);
 
     try {
-      // Paso 1: Analizar el producto con IA (gratuita, API de Manus)
-      const analysis =
-        input.type === "url"
-          ? await analyzeProductFromURL(input.value)
-          : await analyzeProductFromImage(input.value);
+      // Paso 1: Analizar el producto con IA via tRPC
+      const analysisResult = await analyzeProduct.mutateAsync({
+        type: input.type,
+        value: input.value,
+      });
 
+      if (!analysisResult.success || !analysisResult.data) {
+        throw new Error(analysisResult.error || "No se pudo analizar el producto");
+      }
+
+      const analysis = analysisResult.data;
       setIsAnalyzing(false);
       setIsSearching(true);
 
-      // Paso 2: Buscar alternativas más económicas
-      const alternatives = await findAlternatives(analysis);
-      setSearchResults(alternatives);
+      // Paso 2: Buscar alternativas más económicas via tRPC
+      const alternativesResult = await findAlternatives.mutateAsync({
+        name: analysis.name,
+        description: analysis.description,
+        category: analysis.category,
+        color: analysis.color,
+        material: analysis.material,
+        estimatedPrice: analysis.estimatedPrice,
+        style: analysis.style,
+        searchTerms: analysis.searchTerms,
+      });
+
+      if (!alternativesResult.success) {
+        throw new Error(alternativesResult.error || "No se pudieron encontrar alternativas");
+      }
+
+      setSearchResults((alternativesResult.data as AlternativeProduct[]) || []);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error inesperado";
       setErrorMsg(msg);

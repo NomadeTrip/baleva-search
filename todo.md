@@ -14,4 +14,6 @@
 - [x] Simplificar app: eliminar Express, usar IA directamente desde el frontend
 - [x] Actualizar vercel.json para despliegue estático simple (outputDirectory: dist/public)
 - [x] Build de producción exitoso (vite build)
-- [ ] Publicar en GitHub y desplegar en Vercel
+- [x] Publicar en GitHub (commit 79508e7) - Vercel auto-despliega al hacer push
+- [x] Diagnosticar y corregir error en la búsqueda: mover IA al backend tRPC (invokeLLM)
+- [x] Búsqueda funciona correctamente en entorno Manus (6 alternativas encontradas)
