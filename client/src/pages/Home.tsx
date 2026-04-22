@@ -1,58 +1,83 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Loader2, TrendingDown } from "lucide-react";
 import SearchInput from "@/components/SearchInput";
 import ProductCard from "@/components/ProductCard";
-import { useGeminiAnalysis } from "@/hooks/useGeminiAnalysis";
-import { useProductSearch, type Product } from "@/hooks/useProductSearch";
+import { trpc } from "@/lib/trpc";
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice: number;
+  savings: number;
+  similarity: number;
+  store: string;
+  url: string;
+  image: string;
+  description: string;
+  available: boolean;
+  rating?: number;
+  reviewCount?: number;
+}
 
 export default function Home() {
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
-  const [currentAnalysis, setCurrentAnalysis] = useState<any>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const { analyzeProduct, isLoading: isAnalyzing, error: analysisError } = useGeminiAnalysis();
-  const {
-    searchAlternativesProducts,
-    isLoading: isSearching,
-    error: searchError,
-  } = useProductSearch();
+  const analyzeProduct = trpc.search.analyzeProduct.useMutation();
+  const findAlternatives = trpc.search.findAlternatives.useMutation();
 
   const isLoading = isAnalyzing || isSearching;
-  const error = analysisError || searchError;
 
   const handleSearch = async (input: { type: "url" | "image"; value: string }) => {
     setHasSearched(true);
     setSearchResults([]);
+    setErrorMsg(null);
+    setIsAnalyzing(true);
 
-    // Paso 1: Analizar producto con Gemini
-    const analysis = await analyzeProduct(input);
+    try {
+      // Paso 1: Analizar producto con IA del servidor
+      const analysisResult = await analyzeProduct.mutateAsync(input);
 
-    if (!analysis) {
-      return;
-    }
-
-    setCurrentAnalysis(analysis);
-
-    // Paso 2: Buscar alternativas
-    const alternatives = await searchAlternativesProducts(
-      analysis.searchTerms,
-      analysis.estimatedPrice,
-      {
-        name: analysis.name,
-        category: analysis.category,
-        color: analysis.color,
+      if (!analysisResult.success || !analysisResult.data) {
+        setErrorMsg(analysisResult.error || "No se pudo analizar el producto");
+        setIsAnalyzing(false);
+        return;
       }
-    );
 
-    setSearchResults(alternatives);
+      const analysis = analysisResult.data;
+      setIsAnalyzing(false);
+      setIsSearching(true);
+
+      // Paso 2: Buscar alternativas
+      const alternativesResult = await findAlternatives.mutateAsync(analysis);
+
+      if (!alternativesResult.success) {
+        setErrorMsg(alternativesResult.error || "No se pudieron encontrar alternativas");
+        setIsSearching(false);
+        return;
+      }
+
+      setSearchResults(alternativesResult.data || []);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error inesperado";
+      setErrorMsg(msg);
+    } finally {
+      setIsAnalyzing(false);
+      setIsSearching(false);
+    }
   };
 
   const totalSavings = searchResults.reduce((sum, p) => sum + p.savings, 0);
-  const bestDeal = searchResults.length > 0
-    ? searchResults.reduce((best, current) =>
-        current.savings > best.savings ? current : best
-      )
-    : null;
+  const bestDeal =
+    searchResults.length > 0
+      ? searchResults.reduce((best, current) =>
+          current.savings > best.savings ? current : best
+        )
+      : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -64,7 +89,7 @@ export default function Home() {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <TrendingDown className="w-5 h-5 text-primary-foreground" />
               </div>
-              <h1 className="text-2xl font-display font-bold text-foreground">
+              <h1 className="text-2xl font-bold text-foreground">
                 Baleva Search
               </h1>
             </div>
@@ -82,7 +107,7 @@ export default function Home() {
           <div className="max-w-3xl mx-auto">
             {/* Hero Section */}
             <div className="text-center mb-12">
-              <h2 className="text-4xl sm:text-5xl font-display font-bold text-foreground mb-4">
+              <h2 className="text-4xl sm:text-5xl font-bold text-foreground mb-4">
                 Busca alternativas más económicas
               </h2>
               <p className="text-lg text-muted-foreground mb-8">
@@ -142,7 +167,7 @@ export default function Home() {
                 <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
                 <p className="text-lg text-foreground font-semibold">
                   {isAnalyzing
-                    ? "Analizando producto..."
+                    ? "Analizando producto con IA..."
                     : "Buscando alternativas..."}
                 </p>
                 <p className="text-sm text-muted-foreground mt-2">
@@ -151,16 +176,17 @@ export default function Home() {
               </div>
             )}
 
-            {!isLoading && error && (
+            {!isLoading && errorMsg && (
               <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-6 text-center">
                 <p className="text-destructive font-semibold mb-2">
                   Error en la búsqueda
                 </p>
-                <p className="text-sm text-destructive/80">{error}</p>
+                <p className="text-sm text-destructive/80">{errorMsg}</p>
                 <button
                   onClick={() => {
                     setHasSearched(false);
                     setSearchResults([]);
+                    setErrorMsg(null);
                   }}
                   className="mt-4 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors text-sm font-medium"
                 >
@@ -175,7 +201,7 @@ export default function Home() {
                 <div className="mb-8">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h2 className="text-3xl font-display font-bold text-foreground">
+                      <h2 className="text-3xl font-bold text-foreground">
                         {searchResults.length} alternativas encontradas
                       </h2>
                       <p className="text-muted-foreground mt-1">
@@ -186,6 +212,7 @@ export default function Home() {
                       onClick={() => {
                         setHasSearched(false);
                         setSearchResults([]);
+                        setErrorMsg(null);
                       }}
                       className="px-4 py-2 border border-border rounded-lg hover:bg-secondary transition-colors text-sm font-medium"
                     >
@@ -210,7 +237,7 @@ export default function Home() {
                       <p className="text-sm text-muted-foreground mb-1">
                         Ahorro total
                       </p>
-                      <p className="text-2xl font-bold text-accent">
+                      <p className="text-2xl font-bold text-green-600">
                         ${totalSavings.toLocaleString()}
                       </p>
                     </div>
@@ -221,8 +248,10 @@ export default function Home() {
                       </p>
                       <p className="text-2xl font-bold text-primary">
                         {Math.round(
-                          searchResults.reduce((sum, p) => sum + p.similarity, 0) /
-                            searchResults.length
+                          searchResults.reduce(
+                            (sum, p) => sum + p.similarity,
+                            0
+                          ) / searchResults.length
                         )}
                         %
                       </p>
@@ -239,7 +268,7 @@ export default function Home() {
               </>
             )}
 
-            {!isLoading && searchResults.length === 0 && !error && (
+            {!isLoading && searchResults.length === 0 && !errorMsg && (
               <div className="text-center py-16">
                 <p className="text-lg text-muted-foreground mb-4">
                   No se encontraron alternativas
