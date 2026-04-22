@@ -7,6 +7,10 @@
   "regions": ["sfo1"],
   "cleanUrls": true,
   "trailingSlash": false,
+  "env": {
+    "VITE_GEMINI_API_KEY": "@gemini_api_key",
+    "VITE_GEMINI_API_URL": "@gemini_api_url"
+  },
   "rewrites": [
     {
       "source": "/(.*)",
