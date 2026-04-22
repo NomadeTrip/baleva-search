@@ -6,11 +6,6 @@
   "regions": ["sfo1"],
   "cleanUrls": true,
   "trailingSlash": false,
-  "functions": {
-    "api/*.js": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/:path*",
