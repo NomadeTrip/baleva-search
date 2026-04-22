@@ -1,6 +1,8 @@
 # Baleva Search
 
-Baleva Search es una aplicación web que permite encontrar alternativas más económicas de cualquier producto. Sube una foto o pega un link, y la IA analizará el producto para encontrar opciones similares pero más baratas en tiendas nacionales e internacionales.
+Baleva Search es una aplicación web que permite encontrar alternativas más económicas de cualquier producto.
+
+**Estado:** ✅ Listo para desplegar Sube una foto o pega un link, y la IA analizará el producto para encontrar opciones similares pero más baratas en tiendas nacionales e internacionales.
 
 ## 🚀 Características
 
