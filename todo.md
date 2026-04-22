@@ -17,3 +17,7 @@
 - [x] Publicar en GitHub (commit 79508e7) - Vercel auto-despliega al hacer push
 - [x] Diagnosticar y corregir error en la búsqueda: mover IA al backend tRPC (invokeLLM)
 - [x] Búsqueda funciona correctamente en entorno Manus (6 alternativas encontradas)
+- [x] Convertir a Vercel Serverless Functions con API de Gemini (api/analyze.js + api/alternatives.js)
+- [x] Actualizar frontend para llamar a las Serverless Functions (fetch /api/analyze y /api/alternatives)
+- [x] Actualizar vercel.json para Serverless Functions (nodejs20.x)
+- [x] Build de producción exitoso (dist/public + api/)

@@ -2,7 +2,17 @@ import { useState } from "react";
 import { Loader2, TrendingDown } from "lucide-react";
 import SearchInput from "@/components/SearchInput";
 import ProductCard from "@/components/ProductCard";
-import { trpc } from "@/lib/trpc";
+
+interface ProductAnalysis {
+  name: string;
+  description: string;
+  category: string;
+  color: string;
+  material: string;
+  estimatedPrice: number;
+  style: string;
+  searchTerms: string[];
+}
 
 interface AlternativeProduct {
   id: string;
@@ -27,9 +37,6 @@ export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
-  const analyzeProduct = trpc.search.analyzeProduct.useMutation();
-  const findAlternatives = trpc.search.findAlternatives.useMutation();
-
   const isLoading = isAnalyzing || isSearching;
 
   const handleSearch = async (input: { type: "url" | "image"; value: string }) => {
@@ -39,37 +46,60 @@ export default function Home() {
     setIsAnalyzing(true);
 
     try {
-      // Paso 1: Analizar el producto con IA via tRPC
-      const analysisResult = await analyzeProduct.mutateAsync({
-        type: input.type,
-        value: input.value,
+      // Paso 1: Analizar el producto con Gemini via Serverless Function
+      const analyzeRes = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: input.type, value: input.value }),
       });
 
-      if (!analysisResult.success || !analysisResult.data) {
-        throw new Error(analysisResult.error || "No se pudo analizar el producto");
+      if (!analyzeRes.ok) {
+        const text = await analyzeRes.text();
+        let errMsg = "Error al analizar el producto";
+        try { errMsg = JSON.parse(text).error || errMsg; } catch {}
+        throw new Error(errMsg);
       }
 
-      const analysis = analysisResult.data;
+      const analyzeData = await analyzeRes.json();
+
+      if (!analyzeData.success || !analyzeData.data) {
+        throw new Error(analyzeData.error || "No se pudo analizar el producto");
+      }
+
+      const analysis: ProductAnalysis = analyzeData.data;
       setIsAnalyzing(false);
       setIsSearching(true);
 
-      // Paso 2: Buscar alternativas más económicas via tRPC
-      const alternativesResult = await findAlternatives.mutateAsync({
-        name: analysis.name,
-        description: analysis.description,
-        category: analysis.category,
-        color: analysis.color,
-        material: analysis.material,
-        estimatedPrice: analysis.estimatedPrice,
-        style: analysis.style,
-        searchTerms: analysis.searchTerms,
+      // Paso 2: Buscar alternativas más económicas via Serverless Function
+      const altRes = await fetch("/api/alternatives", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: analysis.name,
+          description: analysis.description,
+          category: analysis.category,
+          color: analysis.color,
+          material: analysis.material,
+          estimatedPrice: analysis.estimatedPrice,
+          style: analysis.style,
+          searchTerms: analysis.searchTerms,
+        }),
       });
 
-      if (!alternativesResult.success) {
-        throw new Error(alternativesResult.error || "No se pudieron encontrar alternativas");
+      if (!altRes.ok) {
+        const text = await altRes.text();
+        let errMsg = "Error al buscar alternativas";
+        try { errMsg = JSON.parse(text).error || errMsg; } catch {}
+        throw new Error(errMsg);
       }
 
-      setSearchResults((alternativesResult.data as AlternativeProduct[]) || []);
+      const altData = await altRes.json();
+
+      if (!altData.success) {
+        throw new Error(altData.error || "No se pudieron encontrar alternativas");
+      }
+
+      setSearchResults((altData.data as AlternativeProduct[]) || []);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error inesperado";
       setErrorMsg(msg);
