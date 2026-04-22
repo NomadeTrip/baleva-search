@@ -86,8 +86,9 @@ Importante: Los precios deben ser SIGNIFICATIVAMENTE más baratos que $${estimat
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("Gemini API error:", errorData);
-      return res.status(500).json({ success: false, error: "Error al llamar a la API de Gemini" });
+      console.error("Gemini API error:", JSON.stringify(errorData));
+      const geminiMsg = errorData?.error?.message || JSON.stringify(errorData);
+      return res.status(500).json({ success: false, error: `Gemini error (${response.status}): ${geminiMsg}` });
     }
 
     const data = await response.json();
