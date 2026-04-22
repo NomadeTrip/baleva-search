@@ -21,3 +21,6 @@
 - [x] Actualizar frontend para llamar a las Serverless Functions (fetch /api/analyze y /api/alternatives)
 - [x] Actualizar vercel.json para Serverless Functions (nodejs20.x)
 - [x] Build de producción exitoso (dist/public + api/)
+- [ ] Agregar selector de moneda (USD/CLP/ARS/etc.) con conversión de precios
+- [ ] Corregir imágenes de resultados (no cargan)
+- [ ] Corregir links rotos: usar URLs de búsqueda reales en lugar de links directos inventados por la IA

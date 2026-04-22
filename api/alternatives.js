@@ -1,4 +1,31 @@
 // Vercel Serverless Function: busca alternativas más económicas con Groq API (gratis)
+
+// Genera URL de búsqueda real para cada tienda (siempre funciona)
+function buildSearchUrl(store, searchQuery) {
+  const q = encodeURIComponent(searchQuery);
+  const storeLower = store.toLowerCase();
+
+  if (storeLower.includes("amazon")) return `https://www.amazon.com/s?k=${q}`;
+  if (storeLower.includes("aliexpress")) return `https://www.aliexpress.com/wholesale?SearchText=${q}`;
+  if (storeLower.includes("shein")) return `https://www.shein.com/search?q=${q}`;
+  if (storeLower.includes("zara")) return `https://www.zara.com/cl/es/search?searchTerm=${q}`;
+  if (storeLower.includes("h&m") || storeLower.includes("hm")) return `https://www2.hm.com/es_es/search-results.html?q=${q}`;
+  if (storeLower.includes("asos")) return `https://www.asos.com/search/?q=${q}`;
+  if (storeLower.includes("mango")) return `https://shop.mango.com/cl/busqueda?q=${q}`;
+  if (storeLower.includes("etsy")) return `https://www.etsy.com/search?q=${q}`;
+  if (storeLower.includes("ebay")) return `https://www.ebay.com/sch/i.html?_nkw=${q}`;
+  if (storeLower.includes("wish")) return `https://www.wish.com/search/${q}`;
+  if (storeLower.includes("falabella")) return `https://www.falabella.com/falabella-cl/search?Ntt=${q}`;
+  if (storeLower.includes("ripley")) return `https://simple.ripley.cl/search?string=${q}`;
+  if (storeLower.includes("paris")) return `https://www.paris.cl/search?q=${q}`;
+  if (storeLower.includes("mercadolibre") || storeLower.includes("mercado libre")) return `https://listado.mercadolibre.cl/${q}`;
+  if (storeLower.includes("walmart")) return `https://www.walmart.com/search?q=${q}`;
+  if (storeLower.includes("temu")) return `https://www.temu.com/search_result.html?search_key=${q}`;
+
+  // Fallback: búsqueda en Google Shopping
+  return `https://www.google.com/search?tbm=shop&q=${q}`;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -33,7 +60,7 @@ export default async function handler(req, res) {
           },
           {
             role: "user",
-            content: `Busca alternativas más económicas para este producto:
+            content: `Sugiere 6 alternativas más económicas para este producto:
 
 Nombre: ${name}
 Descripción: ${description || ""}
@@ -44,30 +71,34 @@ Precio original estimado: $${estimatedPrice} USD
 Estilo: ${style || ""}
 Términos de búsqueda: ${(searchTerms || []).join(", ")}
 
-Genera 6 alternativas reales y más económicas de tiendas conocidas (Amazon, AliExpress, Zara, H&M, ASOS, Shein, Mango, Etsy, etc.) que tengan un diseño similar.
+Para cada alternativa, sugiere:
+- Un nombre descriptivo del tipo de producto alternativo
+- Una tienda conocida donde buscarlo (Amazon, AliExpress, Shein, Zara, H&M, ASOS, Mango, Etsy, Falabella, Ripley, MercadoLibre, Temu, Walmart, eBay)
+- Un término de búsqueda corto y específico para encontrarlo en esa tienda (máximo 5 palabras en inglés o español)
+- Un precio estimado en USD (significativamente más barato que $${estimatedPrice})
+- Porcentaje de similitud con el producto original
 
-Responde SOLO con un JSON válido (sin markdown, sin bloques de código) con esta estructura:
+Responde SOLO con JSON válido (sin markdown):
 {
   "alternatives": [
     {
       "id": "1",
-      "name": "nombre del producto alternativo",
-      "price": precio en USD (número),
-      "originalPrice": precio original en USD (número, puede ser igual),
-      "savings": ahorro respecto al producto original (número),
-      "similarity": porcentaje de similitud 0-100 (número),
+      "name": "nombre descriptivo del producto alternativo",
+      "searchQuery": "término de búsqueda corto para la tienda",
       "store": "nombre de la tienda",
-      "url": "URL de búsqueda o producto en la tienda",
-      "image": "https://via.placeholder.com/300",
-      "description": "descripción breve de por qué es similar",
+      "price": precio en USD (número),
+      "originalPrice": ${estimatedPrice},
+      "savings": ahorro en USD (número),
+      "similarity": porcentaje 0-100 (número),
+      "description": "por qué es una buena alternativa",
       "available": true,
-      "rating": calificación 1-5 (número),
-      "reviewCount": número de reseñas estimado
+      "rating": calificación estimada 3.5-5 (número),
+      "reviewCount": número estimado de reseñas
     }
   ]
 }
 
-Importante: Los precios deben ser SIGNIFICATIVAMENTE más baratos que $${estimatedPrice} USD. Ordena por similitud de diseño.`,
+Importante: precios deben ser SIGNIFICATIVAMENTE más baratos que $${estimatedPrice} USD.`,
           },
         ],
         max_tokens: 2048,
@@ -89,7 +120,16 @@ Importante: Los precios deben ser SIGNIFICATIVAMENTE más baratos que $${estimat
     if (!jsonMatch) return res.status(500).json({ success: false, error: "No se pudieron encontrar alternativas" });
 
     const parsed = JSON.parse(jsonMatch[0]);
-    return res.status(200).json({ success: true, data: parsed.alternatives || [] });
+    const alternatives = parsed.alternatives || [];
+
+    // Construir URLs de búsqueda reales para cada alternativa
+    const withRealUrls = alternatives.map((alt) => ({
+      ...alt,
+      url: buildSearchUrl(alt.store, alt.searchQuery || alt.name),
+      image: "", // Sin imagen falsa — el ProductCard mostrará el placeholder con el nombre
+    }));
+
+    return res.status(200).json({ success: true, data: withRealUrls });
   } catch (error) {
     console.error("Error en alternatives:", error);
     return res.status(500).json({ success: false, error: error.message || "Error desconocido" });
