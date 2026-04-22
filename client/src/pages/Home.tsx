@@ -2,33 +2,19 @@ import { useState } from "react";
 import { Loader2, TrendingDown } from "lucide-react";
 import SearchInput from "@/components/SearchInput";
 import ProductCard from "@/components/ProductCard";
-import { trpc } from "@/lib/trpc";
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  originalPrice: number;
-  savings: number;
-  similarity: number;
-  store: string;
-  url: string;
-  image: string;
-  description: string;
-  available: boolean;
-  rating?: number;
-  reviewCount?: number;
-}
+import {
+  analyzeProductFromURL,
+  analyzeProductFromImage,
+  findAlternatives,
+  type AlternativeProduct,
+} from "@/lib/aiService";
 
 export default function Home() {
-  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [searchResults, setSearchResults] = useState<AlternativeProduct[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-
-  const analyzeProduct = trpc.search.analyzeProduct.useMutation();
-  const findAlternatives = trpc.search.findAlternatives.useMutation();
 
   const isLoading = isAnalyzing || isSearching;
 
@@ -39,29 +25,18 @@ export default function Home() {
     setIsAnalyzing(true);
 
     try {
-      // Paso 1: Analizar producto con IA del servidor
-      const analysisResult = await analyzeProduct.mutateAsync(input);
+      // Paso 1: Analizar el producto con IA (gratuita, API de Manus)
+      const analysis =
+        input.type === "url"
+          ? await analyzeProductFromURL(input.value)
+          : await analyzeProductFromImage(input.value);
 
-      if (!analysisResult.success || !analysisResult.data) {
-        setErrorMsg(analysisResult.error || "No se pudo analizar el producto");
-        setIsAnalyzing(false);
-        return;
-      }
-
-      const analysis = analysisResult.data;
       setIsAnalyzing(false);
       setIsSearching(true);
 
-      // Paso 2: Buscar alternativas
-      const alternativesResult = await findAlternatives.mutateAsync(analysis);
-
-      if (!alternativesResult.success) {
-        setErrorMsg(alternativesResult.error || "No se pudieron encontrar alternativas");
-        setIsSearching(false);
-        return;
-      }
-
-      setSearchResults(alternativesResult.data || []);
+      // Paso 2: Buscar alternativas más económicas
+      const alternatives = await findAlternatives(analysis);
+      setSearchResults(alternatives);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error inesperado";
       setErrorMsg(msg);
@@ -103,9 +78,8 @@ export default function Home() {
       {/* Main Content */}
       <main className="container py-12">
         {!hasSearched ? (
-          // Initial State
+          // Estado inicial
           <div className="max-w-3xl mx-auto">
-            {/* Hero Section */}
             <div className="text-center mb-12">
               <h2 className="text-4xl sm:text-5xl font-bold text-foreground mb-4">
                 Busca alternativas más económicas
@@ -117,10 +91,8 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Search Input */}
             <SearchInput onSearch={handleSearch} isLoading={isLoading} />
 
-            {/* Features */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-16">
               <div className="text-center">
                 <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-3">
@@ -160,7 +132,7 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          // Results State
+          // Estado de resultados
           <div>
             {isLoading && (
               <div className="flex flex-col items-center justify-center py-16">
@@ -197,7 +169,6 @@ export default function Home() {
 
             {!isLoading && searchResults.length > 0 && (
               <>
-                {/* Results Header */}
                 <div className="mb-8">
                   <div className="flex items-center justify-between mb-4">
                     <div>
@@ -220,22 +191,19 @@ export default function Home() {
                     </button>
                   </div>
 
-                  {/* Stats */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="bg-card border border-border rounded-lg p-4">
                       <p className="text-sm text-muted-foreground mb-1">
-                        Mejor opción
+                        Mejor ahorro
                       </p>
                       <p className="text-2xl font-bold text-foreground">
-                        {bestDeal
-                          ? `$${bestDeal.savings.toLocaleString()}`
-                          : "-"}
+                        {bestDeal ? `$${bestDeal.savings.toLocaleString()}` : "-"}
                       </p>
                     </div>
 
                     <div className="bg-card border border-border rounded-lg p-4">
                       <p className="text-sm text-muted-foreground mb-1">
-                        Ahorro total
+                        Ahorro total disponible
                       </p>
                       <p className="text-2xl font-bold text-green-600">
                         ${totalSavings.toLocaleString()}
@@ -244,14 +212,12 @@ export default function Home() {
 
                     <div className="bg-card border border-border rounded-lg p-4">
                       <p className="text-sm text-muted-foreground mb-1">
-                        Promedio de similitud
+                        Similitud promedio
                       </p>
                       <p className="text-2xl font-bold text-primary">
                         {Math.round(
-                          searchResults.reduce(
-                            (sum, p) => sum + p.similarity,
-                            0
-                          ) / searchResults.length
+                          searchResults.reduce((sum, p) => sum + p.similarity, 0) /
+                            searchResults.length
                         )}
                         %
                       </p>
@@ -259,7 +225,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Results Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {searchResults.map((product) => (
                     <ProductCard key={product.id} {...product} />
@@ -288,7 +253,6 @@ export default function Home() {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border mt-16 py-8 bg-card">
         <div className="container text-center text-sm text-muted-foreground">
           <p>

@@ -11,4 +11,7 @@
 - [x] Escribir tests del backend (server/search.test.ts)
 - [x] Todos los tests pasan (5/5)
 - [x] UI en español con diseño responsivo
+- [x] Simplificar app: eliminar Express, usar IA directamente desde el frontend
+- [x] Actualizar vercel.json para despliegue estático simple (outputDirectory: dist/public)
+- [x] Build de producción exitoso (vite build)
 - [ ] Publicar en GitHub y desplegar en Vercel
