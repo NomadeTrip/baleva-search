@@ -1,5 +1,6 @@
-import { ExternalLink, TrendingDown } from "lucide-react";
+import { ExternalLink, TrendingDown, ImageOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 interface ProductCardProps {
   name: string;
@@ -10,6 +11,7 @@ interface ProductCardProps {
   similarity: number;
   url: string;
   savings: number;
+  formatPrice: (usd: number) => string;
 }
 
 export default function ProductCard({
@@ -21,23 +23,42 @@ export default function ProductCard({
   similarity,
   url,
   savings,
+  formatPrice,
 }: ProductCardProps) {
-  const savingsPercentage = Math.round((savings / originalPrice) * 100);
+  const [imgError, setImgError] = useState(false);
+  const savingsPercentage = originalPrice > 0 ? Math.round((savings / originalPrice) * 100) : 0;
+
+  // Generar imagen placeholder con el nombre del producto
+  const placeholderUrl = `https://placehold.co/400x300/f1f5f9/64748b?text=${encodeURIComponent(name.slice(0, 20))}`;
 
   return (
     <div className="bg-card rounded-lg border border-border overflow-hidden hover:shadow-lg transition-shadow duration-300">
       {/* Image Container */}
       <div className="relative w-full h-48 bg-secondary overflow-hidden">
-        {image ? (
+        {!imgError && image && !image.includes("via.placeholder.com") ? (
           <img
             src={image}
             alt={name}
             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+            onError={() => setImgError(true)}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-            <span className="text-sm">Imagen no disponible</span>
-          </div>
+          <img
+            src={placeholderUrl}
+            alt={name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Si el placeholder también falla, mostrar ícono
+              const target = e.currentTarget;
+              target.style.display = "none";
+              target.parentElement!.innerHTML = `
+                <div class="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                  <span class="text-xs">Sin imagen</span>
+                </div>
+              `;
+            }}
+          />
         )}
 
         {/* Savings Badge */}
@@ -70,17 +91,17 @@ export default function ProductCard({
         <div className="mb-4">
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold text-foreground">
-              ${price.toLocaleString()}
+              {formatPrice(price)}
             </span>
             {originalPrice > price && (
               <span className="text-sm text-muted-foreground line-through">
-                ${originalPrice.toLocaleString()}
+                {formatPrice(originalPrice)}
               </span>
             )}
           </div>
           {savings > 0 && (
             <p className="text-xs text-accent font-semibold mt-1">
-              Ahorras: ${savings.toLocaleString()}
+              Ahorras: {formatPrice(savings)}
             </p>
           )}
         </div>

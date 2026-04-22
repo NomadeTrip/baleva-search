@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Loader2, TrendingDown } from "lucide-react";
+import { Loader2, TrendingDown, ChevronDown } from "lucide-react";
 import SearchInput from "@/components/SearchInput";
 import ProductCard from "@/components/ProductCard";
+import { useCurrency, CURRENCIES } from "@/hooks/useCurrency";
 
 interface ProductAnalysis {
   name: string;
@@ -36,6 +37,9 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [showCurrencyMenu, setShowCurrencyMenu] = useState(false);
+
+  const { currency, setCurrency, format, currentConfig } = useCurrency();
 
   const isLoading = isAnalyzing || isSearching;
 
@@ -46,7 +50,7 @@ export default function Home() {
     setIsAnalyzing(true);
 
     try {
-      // Paso 1: Analizar el producto con Gemini via Serverless Function
+      // Paso 1: Analizar el producto con IA via Serverless Function
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -61,7 +65,6 @@ export default function Home() {
       }
 
       const analyzeData = await analyzeRes.json();
-
       if (!analyzeData.success || !analyzeData.data) {
         throw new Error(analyzeData.error || "No se pudo analizar el producto");
       }
@@ -94,7 +97,6 @@ export default function Home() {
       }
 
       const altData = await altRes.json();
-
       if (!altData.success) {
         throw new Error(altData.error || "No se pudieron encontrar alternativas");
       }
@@ -131,9 +133,44 @@ export default function Home() {
                 Baleva Search
               </h1>
             </div>
-            <p className="text-sm text-muted-foreground hidden sm:block">
-              Encuentra alternativas más económicas
-            </p>
+
+            {/* Currency Selector */}
+            <div className="relative">
+              <button
+                onClick={() => setShowCurrencyMenu(!showCurrencyMenu)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-secondary transition-colors text-sm font-medium"
+              >
+                <span>{currentConfig.code}</span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              </button>
+
+              {showCurrencyMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowCurrencyMenu(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-20 min-w-[200px] overflow-hidden">
+                    {CURRENCIES.map((c) => (
+                      <button
+                        key={c.code}
+                        onClick={() => {
+                          setCurrency(c.code);
+                          setShowCurrencyMenu(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors ${
+                          currency === c.code
+                            ? "bg-primary/10 text-primary font-semibold"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -141,7 +178,6 @@ export default function Home() {
       {/* Main Content */}
       <main className="container py-12">
         {!hasSearched ? (
-          // Estado inicial
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-4xl sm:text-5xl font-bold text-foreground mb-4">
@@ -195,7 +231,6 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          // Estado de resultados
           <div>
             {isLoading && (
               <div className="flex flex-col items-center justify-center py-16">
@@ -239,7 +274,7 @@ export default function Home() {
                         {searchResults.length} alternativas encontradas
                       </h2>
                       <p className="text-muted-foreground mt-1">
-                        Ordenadas por similitud y precio
+                        Precios en {currentConfig.name} · Ordenadas por similitud
                       </p>
                     </div>
                     <button
@@ -260,7 +295,7 @@ export default function Home() {
                         Mejor ahorro
                       </p>
                       <p className="text-2xl font-bold text-foreground">
-                        {bestDeal ? `$${bestDeal.savings.toLocaleString()}` : "-"}
+                        {bestDeal ? format(bestDeal.savings) : "-"}
                       </p>
                     </div>
 
@@ -269,7 +304,7 @@ export default function Home() {
                         Ahorro total disponible
                       </p>
                       <p className="text-2xl font-bold text-green-600">
-                        ${totalSavings.toLocaleString()}
+                        {format(totalSavings)}
                       </p>
                     </div>
 
@@ -281,8 +316,7 @@ export default function Home() {
                         {Math.round(
                           searchResults.reduce((sum, p) => sum + p.similarity, 0) /
                             searchResults.length
-                        )}
-                        %
+                        )}%
                       </p>
                     </div>
                   </div>
@@ -290,7 +324,11 @@ export default function Home() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {searchResults.map((product) => (
-                    <ProductCard key={product.id} {...product} />
+                    <ProductCard
+                      key={product.id}
+                      {...product}
+                      formatPrice={format}
+                    />
                   ))}
                 </div>
               </>
