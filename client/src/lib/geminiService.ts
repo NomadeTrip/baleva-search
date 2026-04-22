@@ -14,8 +14,28 @@ interface ProductAnalysis {
   searchTerms: string[];
 }
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_FRONTEND_FORGE_API_KEY;
-const GEMINI_API_URL = import.meta.env.VITE_GEMINI_API_URL || import.meta.env.VITE_FRONTEND_FORGE_API_URL || 'https://generativelanguage.googleapis.com';
+// Obtener variables de entorno - intentar múltiples nombres
+const getApiKey = () => {
+  // Intentar diferentes nombres de variables
+  return (
+    (import.meta.env.VITE_GEMINI_API_KEY as string) ||
+    (import.meta.env.GEMINI_API_KEY as string) ||
+    (import.meta.env.VITE_FRONTEND_FORGE_API_KEY as string) ||
+    ""
+  );
+};
+
+const getApiUrl = () => {
+  return (
+    (import.meta.env.VITE_GEMINI_API_URL as string) ||
+    (import.meta.env.GEMINI_API_URL as string) ||
+    (import.meta.env.VITE_FRONTEND_FORGE_API_URL as string) ||
+    "https://generativelanguage.googleapis.com"
+  );
+};
+
+const GEMINI_API_KEY = getApiKey();
+const GEMINI_API_URL = getApiUrl();
 
 /**
  * Analiza un producto desde una URL usando Gemini
@@ -25,7 +45,9 @@ export async function analyzeProductFromUrl(
 ): Promise<ProductAnalysis | null> {
   try {
     if (!GEMINI_API_KEY) {
-      throw new Error('API key de Gemini no configurada. Agrega VITE_GEMINI_API_KEY en variables de entorno.');
+      throw new Error(
+        "API key de Gemini no configurada. Agrega GEMINI_API_KEY en variables de entorno de Vercel."
+      );
     }
 
     const response = await fetch(
@@ -94,7 +116,9 @@ export async function analyzeProductFromImage(
 ): Promise<ProductAnalysis | null> {
   try {
     if (!GEMINI_API_KEY) {
-      throw new Error('API key de Gemini no configurada. Agrega VITE_GEMINI_API_KEY en variables de entorno.');
+      throw new Error(
+        "API key de Gemini no configurada. Agrega GEMINI_API_KEY en variables de entorno de Vercel."
+      );
     }
 
     // Extraer el tipo MIME de la imagen
@@ -173,7 +197,9 @@ export async function generateSearchTerms(
 ): Promise<string[]> {
   try {
     if (!GEMINI_API_KEY) {
-      throw new Error('API key de Gemini no configurada. Agrega VITE_GEMINI_API_KEY en variables de entorno.');
+      throw new Error(
+        "API key de Gemini no configurada. Agrega GEMINI_API_KEY en variables de entorno de Vercel."
+      );
     }
 
     const response = await fetch(
